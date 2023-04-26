@@ -21,7 +21,7 @@ cloudinary.config(
     api_secret=api_secret,
 )
 
-origins = ["http://localhost:3000", "https://aams-frontend.vercel.app/"]
+origins = ["*"]
 myapp.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
