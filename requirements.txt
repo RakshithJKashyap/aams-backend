@@ -1,2 +1,6 @@
 fastapi[all]
 uvicorn[standard]
+python-multipart
+pymongo
+cloudinary
+pydantic
