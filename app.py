@@ -1,4 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from schema import User
 import os
 import cloudinary
@@ -18,6 +19,15 @@ cloudinary.config(
     cloud_name=cloud_name,
     api_key=api_key,
     api_secret=api_secret,
+)
+
+origins = ["http://localhost:3000", "aams-frontend.vercel.app/"]
+myapp.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -95,4 +105,4 @@ def get_user(auth0_token: str):
     if not user:
         return {"message": "User not found", "status": "failed"}
 
-    return {"message": "User found", "status": "success"}
+    return {"message": "User found", "status": "success", "type": user["role"]}
