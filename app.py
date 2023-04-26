@@ -88,10 +88,11 @@ def first_register(
 @myapp.get("/get_user")
 def get_user(auth0_token: str):
     client = DBConnect()
+    if client == "error":
+        raise HTTPException(status_code=400, detail="Database connection failed")
 
     user = client["users"].find_one({"auth0_token": auth0_token})
-
     if not user:
         return {"message": "User not found", "status": "failed"}
 
-    return {"message": "User found", "user": user, "status": "success"}
+    return {"message": "User found", "status": "success"}
