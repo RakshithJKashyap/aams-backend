@@ -166,3 +166,8 @@ def get_cameras():
         cameras.append({"class_name": camera["class_name"], "ip_address": camera["ip_address"]})
 
     return cameras
+
+
+@myapp.get("/start_detection")
+def start_detection(camera_id:str):
+    celery.send_task('start_attendance',args=[camera_id])

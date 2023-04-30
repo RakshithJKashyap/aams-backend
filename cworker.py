@@ -5,10 +5,14 @@ import os
 import urllib.request
 import numpy as np
 import cv2
+import torch
 from face_detector import Detector
 import logging
 import pickle
+from vidgear.gears import CamGear
 from celery.utils.log import get_task_logger
+import time
+
 detector = Detector()
 
 logger = get_task_logger(__name__)
@@ -45,5 +49,46 @@ def first_register(image_url, auth0_token):
         
 
     
-    
+@app.task(name='start_attendance')
+def start_attendance(source):
+    database_vector = []
+    cursor = col.find()
+    for document in cursor:
+        if 'face_vector' in document.keys():
+            database_vector.append(torch.tensor(pickle.loads(document['face_vector'])))
+    stream = CamGear(source=source, stream_mode = True,logging=True).start()
+    start_time = time.time()
+    while time.time() - start_time < 3600:
+    # Read the next frame
+        frame = stream.read()
+        # Check if the frame was successfully read
+        logger.info(type(frame))
+        if frame is None:
+            break
+        detector.current_frame_faces = []
+        detector.face_crop_frames = []
+        detector.face_coordiantes = []
+        detector.class_face_vectors = []
+        detector.get_embeddings_facenet(frame)
+        
+        # Compare face embeddings
+        for i in range(len(detector.class_face_vectors)):
+            for j in range(len(database_vector)):
+                distance = torch.nn.functional.pairwise_distance(detector.class_face_vectors[i], torch.tensor(database_vector[j]))
+                if float(1-distance)*100 > 75.0:
+                    co_ordinates = detector.face_coordiantes[i]
+                    logger.info(co_ordinates)
+                    frame = cv2.rectangle(frame, (co_ordinates['x1'], co_ordinates['y1']), (co_ordinates['x2'], co_ordinates['y2']), (0, 255, 0), 2)
+                    frame = cv2.putText(frame, str(i)+str(" Confidence"+ str(float(1-distance)*100)), (int(co_ordinates['x1'])-12, int(co_ordinates['y1'])-12), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    logger.info(f"Distance between image {i} and image {j}: {float(1-distance)*100}")
+        # Display the frame
+        cv2.imshow('Frame', frame)
+
+        # Wait for a key press and then exit if the 'q' key is pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+        time.sleep(5)
+
+        
 
