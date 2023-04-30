@@ -7,6 +7,7 @@ import cloudinary.uploader
 from db import DBConnect
 import time
 from dotenv import load_dotenv
+from celery import Celery
 
 load_dotenv()
 myapp = FastAPI()
@@ -14,6 +15,11 @@ myapp = FastAPI()
 cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
 api_key = os.getenv("CLOUDINARY_API_KEY")
 api_secret = os.getenv("CLOUDINARY_API_SECRET")
+redis = os.getenv("REDIS")
+mongodb = os.getenv("MONGODB_URI")
+
+celery = Celery(__name__, broker=redis, backend=mongodb)
+
 
 cloudinary.config(
     cloud_name=cloud_name,
@@ -31,10 +37,17 @@ myapp.add_middleware(
 )
 
 
+
+
 @myapp.get("/")
 def myroot():
     return {"message": "Welcome to AAMS"}
 
+
+@myapp.get("/test", tags=["status"])
+def test():
+    r = celery.send_task('health_check')
+    return {"status": "ok", "task_id": r.id, "task_status": r.status}
 
 @myapp.post("/first_register")
 def first_register(
@@ -89,6 +102,7 @@ def first_register(
 
     try:
         output = client["users"].insert_one(user_dict)
+        celery.send_task('first_register', args=[photo_url, auth0_token])
     except Exception as e:
         raise HTTPException(status_code=400, detail="User registration failed")
 

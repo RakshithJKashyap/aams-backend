@@ -4,3 +4,6 @@ python-multipart
 pymongo
 cloudinary
 pydantic
+redis
+celery
+python-dot
