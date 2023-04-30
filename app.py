@@ -119,7 +119,8 @@ def get_user(auth0_token: str):
     if not user:
         return {"message": "User not found", "status": "failed"}
 
-    return {"message": "User found", "status": "success", "type": user["role"]}
+    return {"message": "User found", "status": "success", "type": user["role"], "username": user["username"], "name": user["name"], "email": user["email"], "sem": user["sem"], "branch": user["branch"], "usn": user["usn"], "photo_url": user["photo_url"], "section": user["section"]}
+
 
 
 @myapp.post("/add_cameras")
