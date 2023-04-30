@@ -3,7 +3,6 @@ uvicorn[standard]
 python-multipart
 pymongo
 cloudinary
-pydantic
 redis
 python-dotenv
 amqp==5.1.0
