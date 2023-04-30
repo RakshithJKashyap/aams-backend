@@ -169,7 +169,7 @@ def get_cameras():
     return cameras
 
 @myapp.post("/start_class")
-def start_class(class_name:str, sem:str, section:str, branch:str):
-    celery.send_task('start_attendance',args=[class_name, sem, section, branch])
+def start_class(class_name:str, sem:str, section:str, branch:str, teacher_name:str):
+    celery.send_task('start_attendance',args=[class_name, sem, section, branch,teacher_name])
 
 

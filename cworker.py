@@ -1,3 +1,4 @@
+import datetime
 from celery import Celery
 from pymongo import mongo_client
 from dotenv import load_dotenv
@@ -51,8 +52,15 @@ def first_register(image_url, auth0_token):
 
     
 @app.task(name='start_attendance')
-def start_attendance(class_name, sem, section, branch):
-    class_session = {"class_name": class_name, "sem": sem, "section": section, "branch": branch, "attendance": []}
+def start_attendance(class_name, sem, section, branch, teacher_id):
+    current_datetime = datetime.datetime.now()
+
+    # Convert the datetime object to epoch time
+    epoch_time = current_datetime.strftime("%d/%m/%Y")
+    class_session = {"class_name": class_name, "teacher_name":teacher_id,"sem": sem,
+                      "section": section, "branch": branch, "attendance": [], 
+                      'date':epoch_time,
+                      }
     class_vector = []
     class_names = []
     query = {"sem": sem, "section": section, "branch": branch}
@@ -60,49 +68,54 @@ def start_attendance(class_name, sem, section, branch):
 
     camera  = {"class_name": class_name}
     source = cams.find_one(camera)['ip_address']
+    cams.update_one(camera, {'$set': {'status': 'true'}})
+    try:
+        for document in cursor:
+            if 'face_vector' in document.keys():
+                class_vector.append(torch.tensor(pickle.loads(document['face_vector'])))
+                class_names.append(document['name'])
+        stream = CamGear(source=source, stream_mode = True,logging=True).start()
+        start_time = time.time()
+        while time.time() - start_time < 10:
+        # Read the next frame
+            frame = stream.read()
+            # Check if the frame was successfully read
+            logger.info(type(frame))
+            if frame is None:
+                break
+            detector.current_frame_faces = []
+            detector.face_crop_frames = []
+            detector.face_coordiantes = []
+            detector.class_face_vectors = []
+            detector.get_embeddings_facenet(frame)
+            
+            # Compare face embeddings
+            for i in range(len(detector.class_face_vectors)):
+                for j in range(len(class_vector)):
+                    distance = torch.nn.functional.pairwise_distance(detector.class_face_vectors[i], torch.tensor(class_vector[j]))
+                    if float(1-distance)*100 > 30.0:
+                        co_ordinates = detector.face_coordiantes[i]
+                        logger.info(co_ordinates)
+                        frame = cv2.rectangle(frame, (co_ordinates['x1'], co_ordinates['y1']), (co_ordinates['x2'], co_ordinates['y2']), (0, 255, 0), 2)
+                        frame = cv2.putText(frame, class_names[j]+str(" Confidence "+ str(float(1-distance)*100)), (int(co_ordinates['x1'])-12, int(co_ordinates['y1'])-12), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                        logger.info(f"Distance between image {i} and image {class_names[j]}: {float(1-distance)*100}")
+                        if class_names[j] not in class_session['attendance']:
+                            class_session['attendance'].append(class_names[j])
 
-    for document in cursor:
-        if 'face_vector' in document.keys():
-            class_vector.append(torch.tensor(pickle.loads(document['face_vector'])))
-            class_names.append(document['name'])
-    stream = CamGear(source=source, stream_mode = True,logging=True).start()
-    start_time = time.time()
-    while time.time() - start_time < 10:
-    # Read the next frame
-        frame = stream.read()
-        # Check if the frame was successfully read
-        logger.info(type(frame))
-        if frame is None:
-            break
-        detector.current_frame_faces = []
-        detector.face_crop_frames = []
-        detector.face_coordiantes = []
-        detector.class_face_vectors = []
-        detector.get_embeddings_facenet(frame)
-        
-        # Compare face embeddings
-        for i in range(len(detector.class_face_vectors)):
-            for j in range(len(class_vector)):
-                distance = torch.nn.functional.pairwise_distance(detector.class_face_vectors[i], torch.tensor(class_vector[j]))
-                if float(1-distance)*100 > 30.0:
-                    co_ordinates = detector.face_coordiantes[i]
-                    logger.info(co_ordinates)
-                    frame = cv2.rectangle(frame, (co_ordinates['x1'], co_ordinates['y1']), (co_ordinates['x2'], co_ordinates['y2']), (0, 255, 0), 2)
-                    frame = cv2.putText(frame, class_names[j]+str(" Confidence "+ str(float(1-distance)*100)), (int(co_ordinates['x1'])-12, int(co_ordinates['y1'])-12), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    logger.info(f"Distance between image {i} and image {class_names[j]}: {float(1-distance)*100}")
-                    if class_names[j] not in class_session['attendance']:
-                        class_session['attendance'].append(class_names[j])
+            logger.info(class_session['attendance'])
+            # # Display the frame
+            # cv2.imshow('Frame', frame)
 
-        logger.info(class_session['attendance'])
-        # # Display the frame
-        # cv2.imshow('Frame', frame)
+            # # Wait for a key press and then exit if the 'q' key is pressed
+            # if cv2.waitKey(1) & 0xFF == ord('q'):
+            #     break
 
-        # # Wait for a key press and then exit if the 'q' key is pressed
-        # if cv2.waitKey(1) & 0xFF == ord('q'):
-        #     break
-
-        time.sleep(5)
+            time.sleep(5)
+        cams.update_one(camera, {'$set': {'status': 'false'}})
+        stream.stop()
+    except: 
+        cams.update_one(camera, {'$set': {'status': 'false'}})
     sessions.insert_one(class_session)
-
+    
         
 
