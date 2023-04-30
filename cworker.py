@@ -93,12 +93,12 @@ def start_attendance(class_name, sem, section, branch, teacher_id):
             for i in range(len(detector.class_face_vectors)):
                 for j in range(len(class_vector)):
                     distance = torch.nn.functional.pairwise_distance(detector.class_face_vectors[i], torch.tensor(class_vector[j]))
-                    if float(1-distance)*100 > 30.0:
+                    logger.info(f"Distance between image {i} and image {class_names[j]}: {float(1-distance)*100}")
+                    if float(1-distance)*100 > 75.0:
                         co_ordinates = detector.face_coordiantes[i]
                         logger.info(co_ordinates)
                         frame = cv2.rectangle(frame, (co_ordinates['x1'], co_ordinates['y1']), (co_ordinates['x2'], co_ordinates['y2']), (0, 255, 0), 2)
-                        frame = cv2.putText(frame, class_names[j]+str(" Confidence "+ str(float(1-distance)*100)), (int(co_ordinates['x1'])-12, int(co_ordinates['y1'])-12), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                        logger.info(f"Distance between image {i} and image {class_names[j]}: {float(1-distance)*100}")
+                        frame = cv2.putText(frame, class_names[j]+str(" Confidence "+ str(float(1-distance)*100)), (int(co_ordinates['x1'])-12, int(co_ordinates['y1'])-12), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)     
                         if class_names[j] not in class_session['attendance']:
                             class_session['attendance'].append(class_names[j])
 
