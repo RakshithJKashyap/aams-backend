@@ -120,3 +120,49 @@ def get_user(auth0_token: str):
         return {"message": "User not found", "status": "failed"}
 
     return {"message": "User found", "status": "success", "type": user["role"]}
+
+
+@myapp.post("/add_cameras")
+def add_cameras(class_name: str, ip_address: str):
+    client = DBConnect()
+    if client == "error":
+        raise HTTPException(status_code=400, detail="Database connection failed")
+
+    # Check if camera with the same class_name or ip_address already exists
+    existing_camera = client["camera"].find_one({"$or": [{"class_name": class_name}, {"ip_address": ip_address}]})
+    if existing_camera:
+        raise HTTPException(status_code=400, detail="Camera with the same class_name or ip_address already exists")
+
+    # Insert the new camera
+    new_camera = client["camera"].insert_one({"class_name": class_name, "ip_address": ip_address})
+    if not new_camera:
+        return {"message": "Camera not added", "status": "failed"}
+    else:
+        return {"message": "Camera added", "status": "success"}
+
+
+
+@myapp.delete("/delete_camera/{class_name}")
+def delete_camera(class_name: str):
+    client = DBConnect()
+    if client == "error":
+        raise HTTPException(status_code=400, detail="Database connection failed")
+
+    result = client["camera"].delete_one({"class_name": class_name})
+    if result.deleted_count == 1:
+        return {"message": "Camera deleted", "status": "success"}
+    else:
+        return {"message": "Camera not found", "status": "failed"}
+
+    
+@myapp.get("/get_cameras")
+def get_cameras():
+    client = DBConnect()
+    if client == "error":
+        raise HTTPException(status_code=400, detail="Database connection failed")
+
+    cameras = []
+    for camera in client["camera"].find():
+        cameras.append({"class_name": camera["class_name"], "ip_address": camera["ip_address"]})
+
+    return cameras
