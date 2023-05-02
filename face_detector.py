@@ -80,5 +80,5 @@ class Detector:
             samples = asarray(self.current_frame_faces, 'float32')
             samples = preprocess_input(samples, version=2)
             yhat = self.model.predict(samples)
-            self.current_frame_people.append(yhat)
+            self.class_face_vectors.append(yhat)
 	

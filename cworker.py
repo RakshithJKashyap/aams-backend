@@ -13,7 +13,7 @@ import pickle
 from vidgear.gears import CamGear
 from celery.utils.log import get_task_logger
 import time
-
+from scipy.spatial.distance import cosine
 detector = Detector()
 
 logger = get_task_logger(__name__)
@@ -41,10 +41,10 @@ def first_register(image_url, auth0_token):
     # Decode the NumPy array into OpenCV format
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
     logger.info("Calling Face Detector on image")
-    detector.get_embeddings_facenet(image)
+    detector.get_embeddings_vggface(image)
     if len(detector.class_face_vectors):
         logger.info("Updating database")
-        data = pickle.dumps(detector.class_face_vectors[0])
+        data = detector.class_face_vectors[0].tolist()
         query = {'auth0_token': auth0_token}
         update = {'$set': {'face_vector': data}}
         users.update_one(query, update)
@@ -72,11 +72,12 @@ def start_attendance(class_name, sem, section, branch, teacher_id):
     try:
         for document in cursor:
             if 'face_vector' in document.keys():
-                class_vector.append(torch.tensor(pickle.loads(document['face_vector'])))
+                class_vector.append(np.array(document['face_vector'][0]))
                 class_names.append(document['name'])
-        stream = CamGear(source=source, stream_mode = True,logging=True).start()
+        
         start_time = time.time()
-        while time.time() - start_time < 10:
+        while time.time() - start_time < 120:
+            stream = CamGear(source=source, stream_mode = True,logging=True).start()
         # Read the next frame
             frame = stream.read()
             # Check if the frame was successfully read
@@ -87,33 +88,36 @@ def start_attendance(class_name, sem, section, branch, teacher_id):
             detector.face_crop_frames = []
             detector.face_coordiantes = []
             detector.class_face_vectors = []
-            detector.get_embeddings_facenet(frame)
+            detector.get_embeddings_vggface(frame)
             
             # Compare face embeddings
             for i in range(len(detector.class_face_vectors)):
+                logger.info(detector.class_face_vectors[i].shape)
                 for j in range(len(class_vector)):
-                    distance = torch.nn.functional.pairwise_distance(detector.class_face_vectors[i], torch.tensor(class_vector[j]))
+                    distance = cosine(detector.class_face_vectors[i][0], class_vector[j])
                     logger.info(f"Distance between image {i} and image {class_names[j]}: {float(1-distance)*100}")
-                    if float(1-distance)*100 > 75.0:
+                    if float(1-distance)*100 > 80.0:
                         co_ordinates = detector.face_coordiantes[i]
                         logger.info(co_ordinates)
                         frame = cv2.rectangle(frame, (co_ordinates['x1'], co_ordinates['y1']), (co_ordinates['x2'], co_ordinates['y2']), (0, 255, 0), 2)
                         frame = cv2.putText(frame, class_names[j]+str(" Confidence "+ str(float(1-distance)*100)), (int(co_ordinates['x1'])-12, int(co_ordinates['y1'])-12), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)     
                         if class_names[j] not in class_session['attendance']:
                             class_session['attendance'].append(class_names[j])
+                        continue
 
             logger.info(class_session['attendance'])
-            # # Display the frame
-            # cv2.imshow('Frame', frame)
+            # Display the frame
+            cv2.imshow('Frame', frame)
 
-            # # Wait for a key press and then exit if the 'q' key is pressed
-            # if cv2.waitKey(1) & 0xFF == ord('q'):
-            #     break
+            # Wait for a key press and then exit if the 'q' key is pressed
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
             time.sleep(5)
         cams.update_one(camera, {'$set': {'status': 'false'}})
         stream.stop()
-    except: 
+    except Exception as e: 
+        logger.info(e)
         cams.update_one(camera, {'$set': {'status': 'false'}})
     sessions.insert_one(class_session)
     
