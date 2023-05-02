@@ -107,11 +107,11 @@ def start_attendance(class_name, sem, section, branch, teacher_id):
 
             logger.info(class_session['attendance'])
             # Display the frame
-            cv2.imshow('Frame', frame)
+            # cv2.imshow('Frame', frame)
 
-            # Wait for a key press and then exit if the 'q' key is pressed
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            # # Wait for a key press and then exit if the 'q' key is pressed
+            # if cv2.waitKey(1) & 0xFF == ord('q'):
+            #     break
 
             time.sleep(5)
         cams.update_one(camera, {'$set': {'status': 'false'}})
