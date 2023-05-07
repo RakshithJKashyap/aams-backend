@@ -164,12 +164,13 @@ def get_cameras():
 
     cameras = []
     for camera in client["camera"].find():
-        cameras.append({"class_name": camera["class_name"], "ip_address": camera["ip_address"]})
+        cameras.append({"class_name": camera["class_name"], "ip_address": camera["ip_address"], "status": camera["status"]})
 
     return cameras
 
 @myapp.post("/start_class")
-def start_class(class_name:str, sem:str, section:str, branch:str, teacher_name:str):
-    celery.send_task('start_attendance',args=[class_name, sem, section, branch,teacher_name])
+def start_class(class_name:str, sem:str, section:str, branch:str, teacher_name:str, subject:str):
+    celery.send_task('start_attendance',args=[class_name, sem, section, branch,teacher_name, subject])
+    return {"message": "Class started", "status": "success"}
 
 

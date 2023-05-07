@@ -52,15 +52,16 @@ def first_register(image_url, auth0_token):
 
     
 @app.task(name='start_attendance')
-def start_attendance(class_name, sem, section, branch, teacher_id):
+def start_attendance(class_name, sem, section, branch, teacher_id, subject):
     current_datetime = datetime.datetime.now()
 
     # Convert the datetime object to epoch time
     epoch_time = current_datetime.strftime("%d/%m/%Y")
     class_session = {"class_name": class_name, "teacher_name":teacher_id,"sem": sem,
                       "section": section, "branch": branch, "attendance": [], 
-                      'date':epoch_time,
-                      }
+                      'date':epoch_time, 'subject': subject
+                    }
+                      
     class_vector = []
     class_names = []
     query = {"sem": sem, "section": section, "branch": branch}
@@ -120,6 +121,5 @@ def start_attendance(class_name, sem, section, branch, teacher_id):
         logger.info(e)
         cams.update_one(camera, {'$set': {'status': 'false'}})
     sessions.insert_one(class_session)
-    
-        
+
 
