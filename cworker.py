@@ -56,7 +56,7 @@ def start_attendance(class_name, sem, section, branch, teacher_id, subject):
     current_datetime = datetime.datetime.now()
 
     # Convert the datetime object to epoch time
-    epoch_time = current_datetime.strftime("%d/%m/%Y")
+    epoch_time = current_datetime.strftime("%d/%m/%Y, %H:%M:%S")
     class_session = {"class_name": class_name, "teacher_name":teacher_id,"sem": sem,
                       "section": section, "branch": branch, "attendance": [], 
                       'date':epoch_time, 'subject': subject

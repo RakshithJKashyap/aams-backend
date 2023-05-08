@@ -173,4 +173,43 @@ def start_class(class_name:str, sem:str, section:str, branch:str, teacher_name:s
     celery.send_task('start_attendance',args=[class_name, sem, section, branch,teacher_name, subject])
     return {"message": "Class started", "status": "success"}
 
+@myapp.post("/get_attendance")
+def get_attendance(auth_token: str):
+    client = DBConnect()
+    if client == "error":
+        raise HTTPException(status_code=400, detail="Database connection failed")
+    
+    query = {"auth0_token": auth_token}
 
+    # find the first document matching the filter query
+    result = client["users"].find_one(query)
+
+    if result["role"] == "teacher":
+        tquery = {"teacher_name": auth_token}
+        ans = client["sessions"].find(tquery)
+        resultans = []
+        for i in ans:
+            resultans.append({
+                "date": i["date"],
+                "class_name": i["class_name"],
+                "sem": i["sem"],
+                "section": i["section"],
+                "attendance": i["attendance"],
+                "subject": i["subject"],
+            })
+
+    if result["role"] == "student":
+        squery = {"sem": result["sem"], "section": result["section"]}
+        fin = client["sessions"].find(squery)
+        resultfin = []
+        for res in fin:
+            resultfin.append({
+                "date": res["date"],
+                "class_name": res["class_name"],
+                "sem": res["sem"],
+                "section": res["section"],
+                "attendance": res["attendance"],
+                "subject": res["subject"],
+            })
+
+        return resultfin
